@@ -39,3 +39,7 @@ exclude = "venv"
 line_length = 119
 exclude = ".git"
 
+[tool.flake8]
+max-line-length = 119
+exclude = [".git","__pycache__",".venv"]
+

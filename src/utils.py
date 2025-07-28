@@ -1,4 +1,5 @@
 import json
+import logging
 import pathlib
 from datetime import timedelta
 from typing import Any
@@ -18,9 +19,20 @@ from src.views1 import (
     transfers_and_cash,
 )
 
+logger = logging.getLogger(__name__)
+projectdir = pathlib.Path(__file__).parent.parent
+logfilename = projectdir / "log.log"
+
+file_handler = logging.FileHandler(logfilename, "w")
+logger.addHandler(file_handler)
+file_formatter = logging.Formatter("%(asctime)s %(filename)s %(levelname)s %(funcName)s %(message)s")
+file_handler.setFormatter(file_formatter)
+logger.setLevel(logging.DEBUG)
+
 
 def reading_excel(transactions_file: pathlib.Path) -> Any:
     """excel-файл -> список словарей"""
+    logger.debug("")
     try:
         result_df = pd.read_excel(transactions_file)
         result_df.columns = [
@@ -48,26 +60,33 @@ def reading_excel(transactions_file: pathlib.Path) -> Any:
 
 def reading_json(operations_file: pathlib.Path) -> Any:
     """JSON-файл -> список словарей"""
+    logger.debug("")
     try:
         with open(operations_file, "r", encoding="utf-8", errors="replace") as f:
             result_dict = json.load(f)
         return result_dict
-    except FileNotFoundError as e:
+    except FileNotFoundError:
         return []
 
 
 def output(dict_: dict) -> None:
+    """список словарей -> JSON"""
+    logger.debug("")
     for k, v in dict_.items():
         print(k, v)
-    with open("report.json", "w",encoding="utf-8") as f:
-        json.dump(dict_, f,ensure_ascii=False)
+    with open("report.json", "w", encoding="utf-8") as f:
+        json.dump(dict_, f, ensure_ascii=False, indent=True)
 
 
 def time_period(begin_t: Any, time_t: Any, df: pd.DataFrame) -> pd.DataFrame:
+    """Выбор строк из DataFrame попадающих в период времени"""
+    logger.debug("")
     return df[(df["date"] >= begin_t) & (df["date"] <= time_t)]
 
 
 def beginin_period(time_t: Any, n: int) -> Any:
+    """определение начальной даты"""
+    logger.debug("")
     if n == 1:
         return time_t - timedelta(days=time_t.weekday())  # начало недели
     elif n == 2:
@@ -85,9 +104,11 @@ def beginin_period(time_t: Any, n: int) -> Any:
 
 
 def greeting(time_t: Any) -> str:
-    if time_t.hour <= 0 and time_t.hour <= 5:
+    """тип приветствия по дате"""
+    logger.debug("")
+    if time_t.hour <= 0 and time_t.hour < 6:
         return "Доброе утро"
-    elif time_t.hour <= 5 and time_t.hour < 12:
+    elif time_t.hour <= 6 and time_t.hour < 12:
         return "Добрый день"
     elif time_t.hour <= 12 and time_t.hour < 18:
         return "Добрый вечер"
@@ -98,8 +119,10 @@ def greeting(time_t: Any) -> str:
 
 
 def main_page(df: pd.DataFrame, time_t: Any) -> dict:
-    projectdir = pathlib.Path(__file__).parent.parent
-    filename_ = projectdir / "data/user_settings.json"
+    """главная страница"""
+    logger.debug("")
+    projectdir_ = pathlib.Path(__file__).parent.parent
+    filename_ = projectdir_ / "data/user_settings.json"
     user_settings = reading_json(filename_)
     res_dict = {
         "greeting": greeting(time_t),
@@ -112,8 +135,10 @@ def main_page(df: pd.DataFrame, time_t: Any) -> dict:
 
 
 def events(df: pd.DataFrame) -> dict:
-    projectdir = pathlib.Path(__file__).parent.parent
-    filename_ = projectdir / "data/user_settings.json"
+    """Страница событий"""
+    logger.debug("")
+    projectdir_ = pathlib.Path(__file__).parent.parent
+    filename_ = projectdir_ / "data/user_settings.json"
     user_settings = reading_json(filename_)
     res_dict = {
         "expenses": {

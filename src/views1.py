@@ -1,14 +1,28 @@
 import json
+import logging
 import os
-from typing import Any, Dict, List, Union
+import pathlib
+from typing import Any, List, Union
 
 import numpy as np
 import pandas as pd
+import requests
 from dotenv import load_dotenv
+
+logger = logging.getLogger(__name__)
+projectdir = pathlib.Path(__file__).parent.parent
+logfilename = projectdir / "log.log"
+
+file_handler = logging.FileHandler(logfilename, "w")
+logger.addHandler(file_handler)
+file_formatter = logging.Formatter("%(asctime)s %(filename)s %(levelname)s %(funcName)s %(message)s")
+file_handler.setFormatter(file_formatter)
+logger.setLevel(logging.DEBUG)
 
 
 def card_expenses(df: pd.DataFrame) -> List:
     """Потрачено по картам"""
+    logger.debug("")
     if df.empty:
         return []
     df = df[df["sum"] < 0]
@@ -24,6 +38,7 @@ def card_expenses(df: pd.DataFrame) -> List:
 
 def top_transactions(df: pd.DataFrame) -> List:  #
     """Наибольшие транзакции"""
+    logger.debug("")
     if df.empty:
         return []
     top_df = df.sort_values("sum", ascending=True).groupby("category").head(1).reset_index(drop=True)
@@ -47,6 +62,7 @@ def top_transactions(df: pd.DataFrame) -> List:  #
 
 def expenses_total(df: pd.DataFrame) -> Union[float, int, Any]:
     """Расходов всего"""
+    logger.debug("")
     if df.empty:
         return 0
     expenses_df = df[df["sum"] < 0]
@@ -56,6 +72,8 @@ def expenses_total(df: pd.DataFrame) -> Union[float, int, Any]:
 
 def income_main(df: pd.DataFrame) -> Union[float, int, Any]:
     """Основной доход"""
+    logger.debug("")
+
     if df.empty:
         return 0
     income_df = df[df["sum"] > 0]
@@ -65,6 +83,7 @@ def income_main(df: pd.DataFrame) -> Union[float, int, Any]:
 
 def transfers_and_cash(df: pd.DataFrame) -> Union[dict, Any]:
     """Переводы и наличные"""
+    logger.debug("")
     if df.empty:
         return {}
     transfers_df = df[(df["category"] == "Наличные") | (df["category"] == "Переводы")]
@@ -77,6 +96,7 @@ def transfers_and_cash(df: pd.DataFrame) -> Union[dict, Any]:
 
 def expenses_main(df: pd.DataFrame) -> List:
     """Основные расходы"""
+    logger.debug("")
     if df.empty:
         return []
     expenses_df = df[df["sum"] < 0]
@@ -97,6 +117,7 @@ def expenses_main(df: pd.DataFrame) -> List:
 
 def income_total(df: pd.DataFrame) -> List:
     """Доход всего"""
+    logger.debug("")
     if df.empty:
         return []
     income_df = df[df["sum"] > 0]
@@ -122,38 +143,45 @@ def income_total(df: pd.DataFrame) -> List:
     return lst_res
 
 
-import requests
-
-
 def get_currency_rate(currencies_lst: List) -> list[dict[str, str | Any]]:
     """Курсы валют"""
-    load_dotenv()
-    api_token = os.getenv("API_KEY")
-    headers_ = {"apikey": f"{api_token}"}
-    url = f"https://api.apilayer.com/exchangerates_data/latest?base=RUB"
-    response = requests.get(url, headers=headers_)
-    response_data = json.loads(response.text)
+    logger.debug("")
+    try:
+        load_dotenv()
+        api_token = os.getenv("API_KEY")
+        headers_ = {"apikey": f"{api_token}"}
+        url = f"https://api.apilayer.com/exchangerates_data/latest?base=RUB"
+        response = requests.get(url, headers=headers_)
+        response_data = json.loads(response.text)
 
-    rate_usd = 1 / response_data["rates"][currencies_lst[0]]
-    rate_eur = 1 / response_data["rates"][currencies_lst[1]]
-    res_usd = {"currency": "USD", "rate": round(rate_usd, 2)}
-    res_eur = {"currency": "EUR", "rate": round(rate_eur, 2)}
-    res = [res_usd, res_eur]
-    return res  ## [{'currency': 'USD', 'rate': 77.99}, {'currency': 'EUR', 'rate': 91.14}]
+        rate_0 = 1 / response_data["rates"][currencies_lst[0]]
+        rate_1 = 1 / response_data["rates"][currencies_lst[1]]
+        res_0 = {"currency": currencies_lst[0], "rate": round(rate_0, 2)}
+        res_1 = {"currency": currencies_lst[1], "rate": round(rate_1, 2)}
+        res = [res_0, res_1]
+        return res  ## [{'currency': 'USD', 'rate': 77.99}, {'currency': 'EUR', 'rate': 91.14}]
+    except Exception:
+        return [
+            {"currency": currencies_lst[0], "rate": "нет данных"},
+            {"currency": currencies_lst[1], "rate": "нет данных"},
+        ]
 
 
-def get_stoks_rate(stoks_lst: List) -> list[dict[str, str | Any]]:
+def get_stoks_rate(stoks_lst: List) -> Union[list[dict[str, str | Any]], list[str]]:
     """Курсы акций"""
-    load_dotenv()
-    apy_key = os.getenv("API_TOKEN")
-    res=[]
-    for i in stoks_lst:
-        params_ = {"tickers": i, "token": apy_key, "format": "json"}
-        url = f"https://api.tiingo.com/tiingo/daily/prices"
-        response = requests.get(url, params=params_)
-        response_data = json.loads(response.text)  ##
+    logger.debug("")
+    try:
+        load_dotenv()
+        apy_key = os.getenv("API_TOKEN")
+        res = []
+        for i in stoks_lst:
+            params_ = {"tickers": i, "token": apy_key, "format": "json"}
+            url = f"https://api.tiingo.com/tiingo/daily/prices"
+            response = requests.get(url, params=params_)
+            response_data = json.loads(response.text)  ##
 
-        res.append({"stock": i, "price": response_data[0]["close"]})
+            res.append({"stock": i, "price": response_data[0]["close"]})
 
-    return res  # [{'stock': 'AAPL', 'price': 208.62}, {'stock': 'AMZN', 'price': 225.69}, {'stock': 'GOOGL', 'price': 181.56}, {'stock': 'MSFT', 'price': 503.02}, {'stock': 'TSLA', 'price': 316.9}]
-
+        return res  # [{'stock': 'AAPL', 'price': 208.62}, {'stock': 'AMZN', 'price': 225.69}, {'stock': 'GOOGL', 'price': 181.56}, {'stock': 'MSFT', 'price': 503.02}, {'stock': 'TSLA', 'price': 316.9}]
+    except Exception:
+        return ["нет данных"]
